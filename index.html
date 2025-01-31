@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Runas Ibéricas - Jogo de Adivinhação</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background: radial-gradient(circle, #2a1a1f, #1d1a29);
+            color: #f0f0f0;
+            font-family: 'Poppins', sans-serif;
+            margin: 0;
+            overflow: hidden;
+        }
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 20px;
+            text-shadow: 3px 3px 8px rgba(255, 255, 255, 0.2);
+        }
+        .triangle {
+            text-align: center;
+            animation: fadeIn 2s ease-in-out;
+        }
+        .row {
+            display: flex;
+            justify-content: center;
+        }
+        .cell {
+            width: 55px;
+            height: 55px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 3px;
+            clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+            font-size: 22px;
+            font-weight: bold;
+            text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.5);
+            transition: transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
+            cursor: pointer;
+            flex-direction: column;
+            position: relative;
+        }
+        .cell:hover {
+            transform: scale(1.2);
+            box-shadow: 0 6px 15px rgba(255, 255, 255, 0.3);
+        }
+        .selected {
+            background: #FFD700 !important;
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.8);
+            transform: scale(1.3);
+        }
+        .rune-label {
+            font-size: 11px;
+            margin-top: 2px;
+            font-weight: normal;
+            color: rgba(255, 255, 255, 0.7);
+            text-align: center;
+            width: 100%;
+            position: absolute;
+            bottom: -20px;
+            display: none; /* Inicialmente a legenda está oculta */
+        }
+        .cell.clicked .rune-label {
+            display: block; /* Torna a legenda visível quando a célula recebe a classe clicked */
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        #prediction {
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            text-align: center;
+            font-size: 1.2em;
+            width: 50%;
+            max-width: 600px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+        }
+        button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            background-color: #FFD700;
+            border: none;
+            border-radius: 5px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        button:hover {
+            background-color: #e6c700;
+        }
+    </style>
+</head>
+<body>
+    <h1>Adivinhação</h1>       
+    <div class="triangle" id="triangle"></div>
+    <div id="prediction">Clique numa runa da antiga Ibéria para revelar seu destino...</div>
+    <button onclick="resetSelection()">Reiniciar</button>
+    
+    <script>
+        // Runas e suas respectivas legendas
+        const runes = [
+            { symbol: "ᚹ", label: "a" },
+            { symbol: "ᛁ", label: "ba" },
+            { symbol: "ᛟ", label: "be" },
+            { symbol: "Ꮅ", label: "bi" },
+            { symbol: "Ӿ", label: "bo" },
+            { symbol: "▯", label: "bu" },
+            { symbol: "ᖶ", label: "e" },
+            { symbol: "ᚩ", label: "i" },
+            { symbol: "Λ", label: "ka" },
+            { symbol: "<", label: "ke" },
+            { symbol: "ᛇ", label: "ki" },
+            { symbol: "ⴵ", label: "ko" },
+            { symbol: "Ꙩ", label: "ku" },
+            { symbol: "ᛚ", label: "l" },
+            { symbol: "ᛠ", label: "m" },
+            { symbol: "Y", label: "ḿ" },
+            { symbol: "ᖼ", label: "n" },
+            { symbol: "ᚺ", label: "o" },
+            { symbol: "ᐊ", label: "r" },
+            { symbol: "ϙ", label: "ŕ" },
+            { symbol: "ⵢ", label: "s" },
+            { symbol: "ᛖ", label: "ś" },
+            { symbol: "X", label: "ta" },
+            { symbol: "ᚼ", label: "te" },
+            { symbol: "ϴ", label: "ti" },
+            { symbol: "Ψ", label: "to" },
+            { symbol: "Δ", label: "tu" },
+            { symbol: "ᛏ", label: "u" }
+        ];
+
+        const messages = [
+            "Hoje é um bom dia para tomar decisões importantes.",
+            "Algo inesperado acontecerá, esteja preparado.",
+            "Alguém do passado pode voltar para sua vida.",
+            "A sorte está do seu lado, aproveite a oportunidade.",
+            "Você encontrará um novo caminho em breve.",
+            "Seja paciente, pois boas notícias virão.",
+            "Um desafio se aproxima, mas você sairá vitorioso.",
+            "A energia do universo conspira a seu favor.",
+            "Confie mais em sua intuição, ela guiará seu caminho.",
+            "Um segredo será revelado em breve."
+        ];
+
+        const rows = 7;
+        const triangleContainer = document.getElementById("triangle");
+        const predictionText = document.getElementById("prediction");
+        let selectedCell = null;
+
+        function generatePascalTriangle(n) {
+            let triangle = [];
+            for (let i = 0; i < n; i++) {
+                triangle[i] = [];
+                for (let j = 0; j <= i; j++) {
+                    if (j === 0 || j === i) {
+                        triangle[i][j] = 1;
+                    } else {
+                        triangle[i][j] = triangle[i - 1][j - 1] + triangle[i - 1][j];
+                    }
+                }
+            }
+            return triangle;
+        }
+
+        function displayTriangle() {
+            const pascal = generatePascalTriangle(rows);
+            let runeIndex = 0;
+
+            pascal.forEach((row, rowIndex) => {
+                const rowDiv = document.createElement("div");
+                rowDiv.classList.add("row");
+                row.forEach(() => {
+                    const cell = document.createElement("div");
+                    cell.classList.add("cell");
+
+                    const rune = runes[runeIndex % runes.length];
+                    cell.textContent = rune.symbol;
+
+                    // Adiciona legenda conforme a posição das runas
+                    const label = document.createElement("div");
+                    label.classList.add("rune-label");
+                    label.textContent = rune.label;
+                    cell.appendChild(label);
+
+                    cell.addEventListener("click", () => {
+                        // Remove a seleção anterior
+                        if (selectedCell) {
+                            selectedCell.classList.remove("selected");
+                            selectedCell.classList.remove("clicked");
+                        }
+
+                        // Adiciona a seleção na célula clicada
+                        cell.classList.add("selected");
+                        cell.classList.add("clicked"); // Torna a legenda visível
+                        selectedCell = cell;
+
+                        // Exibe uma previsão ao clicar
+                        predictionText.textContent = messages[Math.floor(Math.random() * messages.length)];
+                    });
+
+                    runeIndex++;
+                    rowDiv.appendChild(cell);
+                });
+
+                triangleContainer.appendChild(rowDiv);
+            });
+        }
+
+        function resetSelection() {
+            if (selectedCell) {
+                selectedCell.classList.remove("selected");
+                selectedCell.classList.remove("clicked"); // Esconde a legenda
+                selectedCell = null;
+            }
+            predictionText.textContent = "Clique numa runa da antiga Ibéria para revelar seu destino...";
+        }
+
+        displayTriangle();
+    </script>
+</body>
+</html>
